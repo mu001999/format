@@ -4,6 +4,10 @@
 #include <string>
 #include <cstddef>
 
+#if __cplusplus <= 201703L
+#error only support in C++20
+#endif
+
 namespace fmt
 {
 namespace details
