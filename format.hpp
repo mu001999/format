@@ -83,6 +83,10 @@ class format
                 );
                 return std::to_string(arg) + fmt_impl<index + 2>(std::forward<Args>(args)...);
             }
+            else
+            {
+                static_assert(false, "Invalid format description");
+            }
         }
         else
         {
