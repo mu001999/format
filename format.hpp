@@ -13,16 +13,34 @@ namespace fmt
 namespace details
 {
 template<std::size_t N>
-struct fixed_string
+class fixed_string
 {
-    char buf[N] {};
+  public:
     constexpr fixed_string(const char (&str)[N])
     {
         for (std::size_t i = 0; i < N; ++i)
         {
-            buf[i] = str[i];
+            data_[i] = str[i];
         }
     }
+
+    constexpr char operator[](std::size_t i) const
+    {
+        return data_[i];
+    }
+
+    constexpr std::size_t size() const
+    {
+        return N;
+    }
+
+    constexpr const char *data() const
+    {
+        return data_;
+    }
+
+  private:
+    char data_[N] {};
 };
 } // namespace details
 
@@ -40,29 +58,35 @@ class format
     template<std::size_t index>
     static std::string fmt_impl()
     {
-        return pattern.buf + index;
+        return pattern.data() + index;
     }
 
     template<std::size_t index, typename Arg, typename ...Args>
     static std::string fmt_impl(Arg &&arg, Args &&...args)
     {
-        if constexpr (pattern.buf[index] == '%')
+        static_assert(index < pattern.size(), "Too much arguments");
+
+        if constexpr (pattern[index] == '%')
         {
-            constexpr char mode = pattern.buf[index + 1];
+            constexpr char mode = pattern[index + 1];
             if constexpr (mode == 's')
             {
-                static_assert(std::is_same_v<std::decay_t<Arg>, std::string> || std::is_convertible_v<std::decay_t<Arg>, const char *>);
+                static_assert(std::is_convertible_v<std::decay_t<Arg>, std::string> || std::is_convertible_v<std::decay_t<Arg>, const char *>,
+                    "%s needs type could be convertible to const char * or std::string"
+                );
                 return arg + fmt_impl<index + 2>(std::forward<Args>(args)...);
             }
             else if constexpr (mode == 'd')
             {
-                static_assert(std::is_convertible_v<std::decay_t<Arg>, int>);
+                static_assert(std::is_convertible_v<std::decay_t<Arg>, int>,
+                    "$d needs type could be convertible to int"
+                );
                 return std::to_string(arg) + fmt_impl<index + 2>(std::forward<Args>(args)...);
             }
         }
         else
         {
-            return pattern.buf[index] + fmt_impl<index + 1>(std::forward<Arg>(arg), std::forward<Args>(args)...);
+            return pattern[index] + fmt_impl<index + 1>(std::forward<Arg>(arg), std::forward<Args>(args)...);
         }
     }
 };
