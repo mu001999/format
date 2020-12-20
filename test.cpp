@@ -3,7 +3,6 @@
 
 int main()
 {
-    std::cout << fmt::format<"%d %s">::fmt(42, "Mu00") << std::endl;
-    // std::cout << fmt::format<"%d">::fmt("test") << std::endl; // error
-    // std::cout << fmt::format<"%d">::fmt(1, 2) << std::endl; // error: too much arguments
+    std::cout << fmt::format<"Hello, {}!">::fmt("world") << std::endl;
+    std::cout << fmt::format<"{1} to see you, {0}">::fmt("Mu00", "Nice") << std::endl;
 }
