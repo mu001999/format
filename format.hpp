@@ -53,7 +53,7 @@ inline std::string as_string(T &&arg)
     {
         return arg;
     }
-    else if (std::is_convertible_v<std::decay_t<T>, std::string>)
+    else if constexpr (std::is_convertible_v<std::decay_t<T>, std::string>)
     {
         return arg;
     }
