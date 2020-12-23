@@ -89,9 +89,13 @@ inline std::string format_impl(const std::tuple<Args...> &args)
     }
     else if constexpr (pattern[i] == '{')
     {
-        static_assert(i + 1 < pattern.size, "Use \\{ or {} but not only {");
+        static_assert(i + 1 < pattern.size, "Use {{ or {...} but not only {");
 
-        if constexpr (pattern[i + 1] == '}')
+        if constexpr (pattern[i + 1] == '{')
+        {
+            return '{' + format_impl<pattern, i + 2, arg_ind + 1>(args);
+        }
+        else if constexpr (pattern[i + 1] == '}')
         {
             static_assert(arg_ind < std::tuple_size_v<Tuple>, "Too few arguments");
             return as_string(std::get<arg_ind>(args)) + format_impl<pattern, i + 2, arg_ind + 1>(args);

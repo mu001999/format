@@ -7,7 +7,16 @@ TEST(Format, Direct)
 {
     ASSERT_EQ(fmt::format<"Hello, {}!">("world"), "Hello, world!");
     ASSERT_EQ(fmt::format<"The number is {}">(42), "The number is 42");
+}
+
+TEST(Format, Positional)
+{
     ASSERT_EQ(fmt::format<"{1} to see you, {0}">("Mu00", "Nice"), "Nice to see you, Mu00");
+}
+
+TEST(Format, Escaping)
+{
+    ASSERT_EQ(fmt::format<"Hello {{}">(), "Hello {}");
 }
 
 int main(int argc, char *argv[])

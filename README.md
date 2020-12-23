@@ -13,3 +13,11 @@ std::cout << fmt::format<"{1} to see you, {0}">("Mu00", "Nice");    // => "Nice 
 ### Positional parameters
 
 ### Formatting Parameters
+
+### Escaping
+
+The literal character `{` may be included in a string by preceding them with the same character. And only occured pairs of `{}` will be treated as placeholders, single `}` will be treated as a literal character. For example:
+
+```cpp
+std::cout << fmt::format<"Hello {{}">();    // => "Hello {}"
+```
