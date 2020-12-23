@@ -14,13 +14,12 @@ namespace fmt
 namespace details
 {
 template<std::size_t N>
-class fixed_string
+struct FixedString
 {
-  public:
     static constexpr std::size_t size = N - 1;
     char data[size] {};
 
-    constexpr fixed_string(const char (&str)[N])
+    constexpr FixedString(const char (&str)[N])
     {
         for (std::size_t i = 0; i < size; ++i)
         {
@@ -46,6 +45,17 @@ class fixed_string
     }
 };
 
+struct Argument
+{
+    std::size_t position;
+
+    constexpr Argument(std::size_t position)
+      : position(position)
+    {
+        // ...
+    }
+};
+
 template<typename T>
 inline std::string as_string(T &&arg)
 {
@@ -63,7 +73,7 @@ inline std::string as_string(T &&arg)
     }
 }
 
-template<fixed_string pattern>
+template<FixedString pattern>
 constexpr std::size_t as_size_t(std::size_t begin, std::size_t end)
 {
     std::size_t res = 0;
@@ -78,12 +88,20 @@ constexpr std::size_t as_size_t(std::size_t begin, std::size_t end)
     return res;
 }
 
-template<fixed_string pattern, std::size_t i, std::size_t arg_ind, typename ...Args>
+template<FixedString pattern>
+constexpr Argument as_argument(std::size_t begin, std::size_t end)
+{
+    
+}
+
+template<FixedString pattern, std::size_t i, std::size_t arg_ind, typename ...Args>
 inline std::string format_impl(const std::tuple<Args...> &args)
 {
     using Tuple = std::tuple<Args...>;
 
-    if constexpr (i >= pattern.size)
+    static_assert(i <= pattern.size, "Out of range");
+
+    if constexpr (i == pattern.size)
     {
         return std::string();
     }
@@ -93,7 +111,7 @@ inline std::string format_impl(const std::tuple<Args...> &args)
 
         if constexpr (pattern[i + 1] == '{')
         {
-            return '{' + format_impl<pattern, i + 2, arg_ind + 1>(args);
+            return '{' + format_impl<pattern, i + 2, arg_ind>(args);
         }
         else if constexpr (pattern[i + 1] == '}')
         {
@@ -103,7 +121,7 @@ inline std::string format_impl(const std::tuple<Args...> &args)
         else
         {
             constexpr auto pos = pattern.find('}', i + 1);
-            static_assert(pos != pattern.size, "Use \\{ or {} but not only {");
+            static_assert(pos != pattern.size, "Use {{ or {...} but not only {");
 
             /**
              * assume that there only would be number
@@ -128,7 +146,7 @@ inline std::string format_impl(const std::tuple<Args...> &args)
 }
 } // namespace details
 
-template<details::fixed_string pattern, typename ...Args>
+template<details::FixedString pattern, typename ...Args>
 inline std::string format(Args &&...args)
 {
     return details::format_impl<pattern, 0, 0>(std::make_tuple(std::forward<Args>(args)...));
