@@ -45,13 +45,35 @@ struct FixedString
     }
 };
 
-struct Argument
+struct Spec
 {
-    Argument() = default;
+    enum Mode : std::uint8_t { Default = 0, Align = 1, Sign = 1 << 2, System = 1 << 3, Padding = 1 << 4, Width = 1 << 5, Precision = 1 << 6 };
+
+    std::uint8_t mode;
+
+    constexpr Spec() : mode(Default)
+    {
+        // ...
+    }
+
+    constexpr bool is_default()
+    {
+        return mode == Default;
+    }
+
+    constexpr void set(Mode m)
+    {
+        mode |= m;
+    }
+
+    constexpr bool has_set(Mode m)
+    {
+        return mode & m;
+    }
 };
 
-template<typename T>
-inline std::string as_string(T &&arg, Argument argument = Argument())
+template<Spec spec = Spec(), typename T>
+inline std::string as_string(T &&arg)
 {
     if constexpr (std::is_convertible_v<std::decay_t<T>, const char *>)
     {
@@ -83,7 +105,7 @@ constexpr std::size_t as_size_t(std::size_t begin, std::size_t end)
 }
 
 template<FixedString pattern>
-constexpr Argument as_argument(std::size_t begin, std::size_t end)
+constexpr Spec as_argument(std::size_t begin, std::size_t end)
 {
     
 }
@@ -123,17 +145,21 @@ inline std::string format_impl(const std::tuple<Args...> &args)
             if constexpr (colon_pos < end_pos)
             {
                 constexpr auto position = as_size_t<pattern>(i + 1, colon_pos);
+
                 static_assert(position != -1, "Invalid number in {:}");
                 static_assert(position < std::tuple_size_v<Tuple>, "Positional parameters not match");
-                return as_string(std::get<position>(args), as_argument<pattern>(colon_pos + 1, end_pos))
+
+                return as_string<as_argument<pattern>(colon_pos + 1, end_pos)>(std::get<position>(args))
                     + format_impl<pattern, end_pos + 1, arg_ind>(args)
                 ;
             }
             else
             {
                 constexpr auto position = as_size_t<pattern>(i + 1, end_pos);
+
                 static_assert(position != -1, "Invalid number in {}");
                 static_assert(position < std::tuple_size_v<Tuple>, "Positional parameters not match");
+
                 return as_string(std::get<position>(args)) + format_impl<pattern, end_pos + 1, arg_ind>(args);
             }
         }
