@@ -93,7 +93,7 @@ inline std::string format_impl(const std::tuple<Args...> &args)
 {
     using Tuple = std::tuple<Args...>;
 
-    static_assert(i <= pattern.size, "Out of range");
+    static_assert(i <= pattern.size, "Error! Please report!");
 
     if constexpr (i == pattern.size)
     {
@@ -141,14 +141,7 @@ inline std::string format_impl(const std::tuple<Args...> &args)
     else
     {
         constexpr auto pos = pattern.find('{', i + 1);
-        if constexpr (pos == pattern.size)
-        {
-            return std::string(pattern.data + i, pos - i);
-        }
-        else
-        {
-            return std::string(pattern.data + i, pos - i) + format_impl<pattern, pos, arg_ind>(args);
-        }
+        return std::string(pattern.data + i, pos - i) + format_impl<pattern, pos, arg_ind>(args);
     }
 }
 } // namespace details
