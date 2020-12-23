@@ -32,9 +32,9 @@ struct FixedString
         return data[i];
     }
 
-    constexpr std::size_t find(char chr, std::size_t start = 0) const
+    constexpr std::size_t find(char chr, std::size_t start = 0, std::size_t end = size) const
     {
-        for (; start < size; ++start)
+        for (; start < end; ++start)
         {
             if (data[start] == chr)
             {
@@ -47,17 +47,11 @@ struct FixedString
 
 struct Argument
 {
-    std::size_t position;
-
-    constexpr Argument(std::size_t position)
-      : position(position)
-    {
-        // ...
-    }
+    Argument() = default;
 };
 
 template<typename T>
-inline std::string as_string(T &&arg)
+inline std::string as_string(T &&arg, Argument argument = Argument())
 {
     if constexpr (std::is_convertible_v<std::decay_t<T>, const char *>)
     {
@@ -109,10 +103,12 @@ inline std::string format_impl(const std::tuple<Args...> &args)
     {
         static_assert(i + 1 < pattern.size, "Use {{ or {...} but not only {");
 
+        // escaping {
         if constexpr (pattern[i + 1] == '{')
         {
             return '{' + format_impl<pattern, i + 2, arg_ind>(args);
         }
+        // simplest placeholder {}
         else if constexpr (pattern[i + 1] == '}')
         {
             static_assert(arg_ind < std::tuple_size_v<Tuple>, "Too few arguments");
@@ -120,15 +116,26 @@ inline std::string format_impl(const std::tuple<Args...> &args)
         }
         else
         {
-            constexpr auto pos = pattern.find('}', i + 1);
-            static_assert(pos != pattern.size, "Use {{ or {...} but not only {");
+            constexpr auto end_pos = pattern.find('}', i + 1);
+            static_assert(end_pos != pattern.size, "Use {{ or {...} but not only {");
 
-            /**
-             * assume that there only would be number
-            */
-            constexpr auto position = as_size_t<pattern>(i + 1, pos);
-            static_assert(position < std::tuple_size_v<Tuple>, "Positional parameters not match");
-            return as_string(std::get<position>(args)) + format_impl<pattern, pos + 1, arg_ind>(args);
+            constexpr auto colon_pos = pattern.find(':', i + 1, end_pos);
+            if constexpr (colon_pos < end_pos)
+            {
+                constexpr auto position = as_size_t<pattern>(i + 1, colon_pos);
+                static_assert(position != -1, "Invalid number in {:}");
+                static_assert(position < std::tuple_size_v<Tuple>, "Positional parameters not match");
+                return as_string(std::get<position>(args), as_argument<pattern>(colon_pos + 1, end_pos))
+                    + format_impl<pattern, end_pos + 1, arg_ind>(args)
+                ;
+            }
+            else
+            {
+                constexpr auto position = as_size_t<pattern>(i + 1, end_pos);
+                static_assert(position != -1, "Invalid number in {}");
+                static_assert(position < std::tuple_size_v<Tuple>, "Positional parameters not match");
+                return as_string(std::get<position>(args)) + format_impl<pattern, end_pos + 1, arg_ind>(args);
+            }
         }
     }
     else

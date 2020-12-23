@@ -12,6 +12,8 @@ TEST(Format, Direct)
 TEST(Format, Positional)
 {
     ASSERT_EQ(fmt::format<"{1} to see you, {0}">("Mu00", "Nice"), "Nice to see you, Mu00");
+    ASSERT_EQ(fmt::format<"{1} {} {0} {}">(1, 2), "2 1 1 2");
+    ASSERT_EQ(fmt::format<"{2} {1} {0}">(0, 1, 2), "2 1 0");
 }
 
 TEST(Format, Escaping)

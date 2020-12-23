@@ -12,6 +12,10 @@ std::cout << fmt::format<"{1} to see you, {0}">("Mu00", "Nice");    // => "Nice 
 
 ### Positional parameters
 
+```cpp
+std::cout << fmt::format<"{1} {} {0} {}">(1, 2); // => "2 1 1 2"
+```
+
 ### Formatting Parameters
 
 ### Escaping
