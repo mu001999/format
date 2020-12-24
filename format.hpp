@@ -275,7 +275,7 @@ inline std::string as_string(T &&arg, const std::tuple<Args...> &args)
                 num /= 8;
             } while (num != 0);
         }
-        result = "0" + (spec.type + result);
+        result = "0" + ((spec.type == 'X' ? 'x' : spec.type) + result);
 
         auto sign = (arg < 0) ? '-' : '+';
         bool has_sign = (spec.sign == '+' || arg < 0) ? true : false;
