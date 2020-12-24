@@ -536,6 +536,12 @@ inline std::string format(Args &&...args)
 {
     return details::format_impl<pattern, 0, 0>(std::make_tuple(std::forward<Args>(args)...));
 }
+
+template<typename ...Args>
+inline std::string format(const std::string &pattern, Args &&...args)
+{
+
+}
 } // namespace fmt
 
 #endif

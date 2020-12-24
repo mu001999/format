@@ -3,20 +3,20 @@
 
 using namespace std;
 
-TEST(Format, Direct)
+TEST(StaticFormat, Direct)
 {
     ASSERT_EQ(fmt::format<"Hello, {}!">("world"), "Hello, world!");
     ASSERT_EQ(fmt::format<"The number is {}">(42), "The number is 42");
 }
 
-TEST(Format, Positional)
+TEST(StaticFormat, Positional)
 {
     ASSERT_EQ(fmt::format<"{1} to see you, {0}">("Mu00", "Nice"), "Nice to see you, Mu00");
     ASSERT_EQ(fmt::format<"{1} {} {0} {}">(1, 2), "2 1 1 2");
     ASSERT_EQ(fmt::format<"{2} {1} {0}">(0, 1, 2), "2 1 0");
 }
 
-TEST(Format, Width)
+TEST(StaticFormat, Width)
 {
     ASSERT_EQ(fmt::format<"{:5}!">("x"),      "x    !");
     ASSERT_EQ(fmt::format<"{:1$}!">("x", 5),  "x    !");
@@ -26,7 +26,7 @@ TEST(Format, Width)
     ASSERT_EQ(fmt::format<"{1:0$}!">(width, "x"), "x    !");
 }
 
-TEST(Format, Fill_Alignment)
+TEST(StaticFormat, Fill_Alignment)
 {
     ASSERT_EQ(fmt::format<"{:<5}!">("x"),  "x    !");
     ASSERT_EQ(fmt::format<"{:-<5}!">("x"), "x----!");
@@ -34,7 +34,7 @@ TEST(Format, Fill_Alignment)
     ASSERT_EQ(fmt::format<"{:>5}!">("x"),  "    x!");
 }
 
-TEST(Format, Sign_Type_Padding)
+TEST(StaticFormat, Sign_Type_Padding)
 {
     ASSERT_EQ(fmt::format<"{:+}!">(5),      "+5!");
     ASSERT_EQ(fmt::format<"{:#x}!">(27),    "0x1b!");
@@ -43,7 +43,7 @@ TEST(Format, Sign_Type_Padding)
     ASSERT_EQ(fmt::format<"{:#010x}!">(27), "0x0000001b!");
 }
 
-TEST(Format, Escaping)
+TEST(StaticFormat, Escaping)
 {
     ASSERT_EQ(fmt::format<"{{}">(), "{}");
 }
