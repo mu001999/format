@@ -16,9 +16,36 @@ TEST(Format, Positional)
     ASSERT_EQ(fmt::format<"{2} {1} {0}">(0, 1, 2), "2 1 0");
 }
 
+TEST(Format, Width)
+{
+    ASSERT_EQ(fmt::format<"{:5}!">("x"),      "x    !");
+    ASSERT_EQ(fmt::format<"{:1$}!">("x", 5),  "x    !");
+    ASSERT_EQ(fmt::format<"{1:0$}!">(5, "x"), "x    !");
+
+    int width = 5;
+    ASSERT_EQ(fmt::format<"{1:0$}!">(width, "x"), "x    !");
+}
+
+TEST(Format, Fill_Alignment)
+{
+    ASSERT_EQ(fmt::format<"{:<5}!">("x"),  "x    !");
+    ASSERT_EQ(fmt::format<"{:-<5}!">("x"), "x----!");
+    ASSERT_EQ(fmt::format<"{:^5}!">("x"),  "  x  !");
+    ASSERT_EQ(fmt::format<"{:>5}!">("x"),  "    x!");
+}
+
+TEST(Format, Sign_Type_Padding)
+{
+    ASSERT_EQ(fmt::format<"{:+}!">(5),      "+5!");
+    ASSERT_EQ(fmt::format<"{:#x}!">(27),    "0x1b!");
+    ASSERT_EQ(fmt::format<"{:05}!">(5),     "00005!");
+    ASSERT_EQ(fmt::format<"{:05}!">(-5),    "-0005!");
+    ASSERT_EQ(fmt::format<"{:#010x}!">(27), "0x0000001b!");
+}
+
 TEST(Format, Escaping)
 {
-    ASSERT_EQ(fmt::format<"Hello {{}">(), "Hello {}");
+    ASSERT_EQ(fmt::format<"{{}">(), "{}");
 }
 
 int main(int argc, char *argv[])
