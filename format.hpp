@@ -3,7 +3,9 @@
 
 #include <tuple>
 #include <string>
+#include <utility>
 #include <cstddef>
+#include <iterator>
 #include <stdexcept>
 
 #if __cplusplus <= 201703L
@@ -14,6 +16,27 @@ namespace fmt
 {
 namespace details
 {
+template<typename T, typename = void>
+struct enable_begin_end : std::false_type {};
+template<typename T>
+struct enable_begin_end<T, std::void_t<decltype(std::begin(std::declval<T>())), decltype(std::end(std::declval<T>()))>> : std::true_type {};
+template<typename T>
+inline constexpr bool enable_begin_end_v = enable_begin_end<T>::value;
+
+template<typename T>
+struct is_pair : std::false_type {};
+template<typename T1, typename T2>
+struct is_pair<std::pair<T1, T2>> : std::true_type {};
+template<typename T>
+inline constexpr bool is_pair_v = is_pair<T>::value;
+
+template<typename T>
+struct is_tuple : std::false_type {};
+template<typename ...Args>
+struct is_tuple<std::tuple<Args...>> : std::true_type {};
+template<typename T>
+inline constexpr bool is_tuple_v = is_tuple<T>::value;
+
 constexpr bool is_align(char chr)
 {
     return chr == '<' || chr == '^' || chr == '>';
@@ -94,8 +117,8 @@ struct Spec
     };
 
     std::uint8_t mode;
-    char         fill       = 0;
-    char         align      = 0;
+    char         fill       = ' ';
+    char         align      = '<';
     char         sign       = 0;
     char         type       = 0;
     std::size_t  width      = 0;
@@ -175,55 +198,98 @@ struct Spec
     }
 };
 
+// declarations
+template<typename T1, typename T2>
+inline std::string pair_to_string(const std::pair<T1, T2> &pair);
+template<std::size_t index, typename ...Args>
+inline std::string tuple_to_string_impl(const std::tuple<Args...> &tuple);
+template<typename ...Args>
+inline std::string tuple_to_string(const std::tuple<Args...> &tuple);
+template<typename T>
+inline std::string container_to_string(T &&arg);
+template<Spec spec, typename T>
+inline std::string integer_to_string(T &&arg);
+template<Spec spec, typename T, typename ...Args>
+inline std::string float_to_string(T &&arg, const std::tuple<Args...> &args);
+template<Spec spec, typename T, typename ...Args>
+inline std::string numeral_to_string(T &&arg, const std::tuple<Args...> &args);
 template<Spec spec = Spec(), typename T, typename ...Args>
-inline std::string as_string(T &&arg, const std::tuple<Args...> &args)
+inline std::string to_string(T &&arg, const std::tuple<Args...> &args);
+template<typename T>
+inline std::string to_string(T &&arg);
+
+template<typename T1, typename T2>
+inline std::string pair_to_string(const std::pair<T1, T2> &pair)
 {
-    using RT = std::decay_t<T>;
+    return '(' + to_string(pair.first) + ", " + to_string(pair.second) + ')';
+}
 
-    std::string result;
-    if constexpr (std::is_convertible_v<RT, const char *>)
+template<std::size_t index, typename ...Args>
+inline std::string tuple_to_string_impl(const std::tuple<Args...> &tuple)
+{
+    using Tuple = std::tuple<Args...>;
+    if constexpr (index == std::tuple_size_v<Tuple>)
     {
-        result = arg;
+        return ")";
     }
-    else if constexpr (std::is_convertible_v<RT, std::string>)
+    else if constexpr (index == 0)
     {
-        result = arg;
-    }
-    else if constexpr (!spec.has_set(Spec::Type))
-    {
-        result = std::to_string(arg);
-    }
-
-    if constexpr (spec.is_default())
-    {
-        return result;
-    }
-
-    std::size_t width;
-    if constexpr (spec.has_set(Spec::WidthArg))
-    {
-        width = std::get<spec.width>(args);
+        return to_string(std::get<index>(tuple)) + tuple_to_string_impl<index + 1>(tuple);
     }
     else
     {
-        width = spec.width;
+        return ", " + to_string(std::get<index>(tuple)) + tuple_to_string_impl<index + 1>(tuple);
     }
+}
 
-    std::size_t precision;
-    if constexpr (spec.has_set(Spec::PreciArg))
+template<typename ...Args>
+inline std::string tuple_to_string(const std::tuple<Args...> &tuple)
+{
+    using Tuple = std::tuple<Args...>;
+    if constexpr (std::tuple_size_v<Tuple> == 0)
     {
-        precision = std::get<spec.precision>(args);
+        return "()";
     }
     else
     {
-        precision = spec.precision;
+        return '(' + tuple_to_string_impl<0>(tuple);
     }
+}
 
-    if constexpr (spec.has_set(Spec::Type))
+// for containers which enable begin() and end()
+template<typename T>
+inline std::string container_to_string(T &&arg)
+{
+    static_assert(enable_begin_end_v<std::decay_t<T>>, "Invalid argument");
+
+    std::string result = "{";
+    for (auto it = std::begin(arg); it != std::end(arg); ++it)
     {
-        static_assert(std::is_integral_v<RT>, "Invalid argument");
+        if (it == std::begin(arg))
+        {
+            result += to_string(*it);
+        }
+        else
+        {
+            result += ", " + to_string(*it);
+        }
+    }
+    return result + "}";
+}
 
-        result.clear();
+// for integers
+template<Spec spec, typename T>
+inline std::string integer_to_string(T &&arg)
+{
+    static_assert(std::is_integral_v<std::decay_t<T>>, "Invalid argument");
+
+    if constexpr (!spec.has_set(Spec::Type))
+    {
+        return std::to_string(arg);
+    }
+    else
+    {
+        std::string result;
         auto num = (arg < 0) ? -arg : arg;
         if constexpr (spec.type == 'x')
         {
@@ -275,30 +341,62 @@ inline std::string as_string(T &&arg, const std::tuple<Args...> &args)
                 num /= 8;
             } while (num != 0);
         }
-        result = "0" + ((spec.type == 'X' ? 'x' : spec.type) + result);
-
-        auto sign = (arg < 0) ? '-' : '+';
-        bool has_sign = (spec.sign == '+' || arg < 0) ? true : false;
-
-        if (has_sign)
-        {
-            result = sign + result;
-        }
-
-        if constexpr (spec.has_set(Spec::Padding))
-        {
-            static_assert(spec.has_set(Spec::Width), "Error! Please report!");
-
-            if (result.size() < width)
-            {
-                auto pos = has_sign ? 3 : 2;
-                result = result.substr(0, pos) + std::string(width - result.size(), '0') + result.substr(pos);
-            }
-        }
+        return (arg < 0 ? "-0" : "0") + ((spec.type == 'X' ? 'x' : spec.type) + result);
     }
-    else if constexpr (spec.has_set(Spec::Padding))
+}
+
+// TODO: for floats
+template<Spec spec, typename T, typename ...Args>
+inline std::string float_to_string(T &&arg, const std::tuple<Args...> &args)
+{
+    static_assert(std::is_floating_point_v<std::decay_t<T>>, "Invalid argument");
+
+    if constexpr (!spec.has_set(Spec::Precision))
     {
-        static_assert(std::is_integral_v<RT> || std::is_floating_point_v<RT>, "Invalid argument");
+        return std::to_string(arg);
+    }
+    else
+    {
+        std::size_t precision;
+        if constexpr (spec.has_set(Spec::PreciArg))
+        {
+            precision = std::get<spec.precision>(args);
+        }
+        else if constexpr (spec.has_set(Spec::Precision))
+        {
+            precision = spec.precision;
+        }
+
+        return std::to_string(arg);
+    }
+}
+
+// for numerals
+template<Spec spec, typename T, typename ...Args>
+inline std::string numeral_to_string(T &&arg, const std::tuple<Args...> &args)
+{
+    std::string result;
+    if constexpr (std::is_integral_v<std::decay_t<T>>)
+    {
+        result = integer_to_string<spec>(arg);
+    }
+    else
+    {
+        result = float_to_string<spec>(arg, args);
+    }
+
+    std::size_t width;
+    if constexpr (spec.has_set(Spec::WidthArg))
+    {
+        width = std::get<spec.width>(args);
+    }
+    else if constexpr (spec.has_set(Spec::Width))
+    {
+        width = spec.width;
+    }
+
+    if constexpr (spec.has_set(Spec::Padding))
+    {
         static_assert(spec.has_set(Spec::Width), "Error! Please report!");
 
         auto sign = (arg < 0) ? '-' : '+';
@@ -311,57 +409,92 @@ inline std::string as_string(T &&arg, const std::tuple<Args...> &args)
 
         if (result.size() < width)
         {
-            if (has_sign)
-            {
-                result = result[0] + std::string(width - result.size(), '0') + result.substr(1);
-            }
-            else
-            {
-                result = std::string(width - result.size(), '0') + result;
-            }
+            auto pos = spec.has_set(Spec::Type) ? (has_sign ? 3 : 2) : (has_sign ? 1 : 0);
+            result = result.substr(0, pos) + std::string(width - result.size(), '0') + result.substr(pos);
         }
     }
     else if constexpr (spec.sign == '+')
     {
-        static_assert(std::is_integral_v<RT> || std::is_floating_point_v<RT>, "Invalid argument");
         if (arg >= 0)
         {
             result = '+' + result;
         }
     }
 
-    if constexpr (spec.has_set(Spec::Align))
+    return result;
+}
+
+template<Spec spec, typename T, typename ...Args>
+inline std::string to_string(T &&arg, const std::tuple<Args...> &args)
+{
+    using RT = std::decay_t<T>;
+
+    if constexpr (std::is_convertible_v<RT, const char *> || std::is_convertible_v<RT, std::string>)
     {
-        if constexpr (spec.align == '<')
+        return arg;
+    }
+    else if constexpr (is_pair_v<RT>)
+    {
+        return pair_to_string(arg);
+    }
+    else if constexpr (is_tuple_v<RT>)
+    {
+        return tuple_to_string(arg);
+    }
+    else if constexpr (enable_begin_end_v<RT>)
+    {
+        return container_to_string(arg);
+    }
+    else
+    {
+        return numeral_to_string<spec>(arg, args);
+    }
+}
+
+template<typename T>
+inline std::string to_string(T &&arg)
+{
+    return to_string(arg, std::make_tuple());
+}
+
+template<Spec spec = Spec(), typename T, typename ...Args>
+inline std::string as_string(T &&arg, const std::tuple<Args...> &args)
+{
+    if constexpr (spec.is_default())
+    {
+        return to_string(arg, args);
+    }
+
+    auto result = to_string<spec>(arg, args);
+
+    std::size_t width;
+    if constexpr (spec.has_set(Spec::WidthArg))
+    {
+        width = std::get<spec.width>(args);
+    }
+    else if constexpr (spec.has_set(Spec::Width))
+    {
+        width = spec.width;
+    }
+
+    if constexpr (spec.has_set(Spec::Width))
+    {
+        if (result.size() < width)
         {
-            if (result.size() < width)
+            if constexpr (spec.align == '<')
             {
                 result = result + std::string(width - result.size(), spec.fill);
             }
-        }
-        else if constexpr (spec.align == '^')
-        {
-            if (result.size() < width)
+            else if constexpr (spec.align == '^')
             {
                 auto rest = width - result.size();
                 result = std::string(rest / 2, spec.fill) + result + std::string(rest - rest / 2, spec.fill);
             }
-        }
-        else
-        {
-            static_assert(spec.align == '>', "Error! Please report!");
-
-            if (result.size() < width)
+            else
             {
+                static_assert(spec.align == '>', "Error! Please report!");
                 result = std::string(width - result.size(), spec.fill) + result;
             }
-        }
-    }
-    else if constexpr (spec.has_set(Spec::Width))
-    {
-        if (result.size() < width)
-        {
-            result += std::string(width - result.size(), ' ');
         }
     }
 
@@ -537,11 +670,13 @@ inline std::string format(Args &&...args)
     return details::format_impl<pattern, 0, 0>(std::make_tuple(std::forward<Args>(args)...));
 }
 
+/* TODO
 template<typename ...Args>
 inline std::string format(const std::string &pattern, Args &&...args)
 {
 
 }
+*/
 } // namespace fmt
 
 #endif
