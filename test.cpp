@@ -1,4 +1,7 @@
 #include "format.hpp"
+#include <set>
+#include <list>
+#include <vector>
 #include <gtest/gtest.h>
 
 using namespace std;
@@ -46,6 +49,31 @@ TEST(StaticFormat, Sign_Type_Padding)
 TEST(StaticFormat, Escaping)
 {
     ASSERT_EQ(fmt::format<"{{}">(), "{}");
+}
+
+TEST(StaticFormat, Pair)
+{
+    ASSERT_EQ(fmt::format<"Hello, {}!">(make_pair(1, 2)), "Hello, (1, 2)!");
+}
+
+TEST(StaticFormat, Tuple)
+{
+    ASSERT_EQ(fmt::format<"Hello, {}!">(make_tuple(1, 2, 3)), "Hello, (1, 2, 3)!");
+}
+
+TEST(StaticFormat, Container)
+{
+    ASSERT_EQ(fmt::format<"Hello, {}!">(std::set{1, 2, 3}), "Hello, {1, 2, 3}!");
+    ASSERT_EQ(fmt::format<"Hello, {}!">(std::list{1, 2, 3}), "Hello, {1, 2, 3}!");
+    ASSERT_EQ(fmt::format<"Hello, {}!">(std::vector{1, 2, 3}), "Hello, {1, 2, 3}!");
+
+    std::vector vec
+    {
+        std::vector{1, 2},
+        std::vector{2, 3},
+        std::vector{3, 4}
+    };
+    ASSERT_EQ(fmt::format<"Hello, {}!">(vec), "Hello, {{1, 2}, {2, 3}, {3, 4}}!");
 }
 
 int main(int argc, char *argv[])
