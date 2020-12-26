@@ -41,6 +41,9 @@ TEST(StaticFormat, Sign_Type_Padding)
 {
     ASSERT_EQ(fmt::format<"{:+}!">(5),      "+5!");
     ASSERT_EQ(fmt::format<"{:#x}!">(27),    "0x1b!");
+    ASSERT_EQ(fmt::format<"{:#X}!">(27),    "0x1B!");
+    ASSERT_EQ(fmt::format<"{:#b}!">(27),    "0b11011!");
+    ASSERT_EQ(fmt::format<"{:#o}!">(27),    "0o33!");
     ASSERT_EQ(fmt::format<"{:05}!">(5),     "00005!");
     ASSERT_EQ(fmt::format<"{:05}!">(-5),    "-0005!");
     ASSERT_EQ(fmt::format<"{:#010x}!">(27), "0x0000001b!");
