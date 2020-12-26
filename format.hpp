@@ -295,7 +295,7 @@ inline std::string integer_to_string(T &&arg)
         {
             do
             {
-                auto rem = num % 16;
+                auto rem = num & 15;
                 if (rem < 10)
                 {
                     result = static_cast<char>(rem + '0') + result;
@@ -304,14 +304,14 @@ inline std::string integer_to_string(T &&arg)
                 {
                     result = static_cast<char>(rem - 10 + 'a') + result;
                 }
-                num /= 16;
+                num >>= 4;
             } while (num != 0);
         }
         else if constexpr (spec.type == 'X')
         {
             do
             {
-                auto rem = num % 16;
+                auto rem = num & 15;
                 if (rem < 10)
                 {
                     result = static_cast<char>(rem + '0') + result;
@@ -320,7 +320,7 @@ inline std::string integer_to_string(T &&arg)
                 {
                     result = static_cast<char>(rem - 10 + 'A') + result;
                 }
-                num /= 16;
+                num >>= 4;
             } while (num != 0);
         }
         else if constexpr (spec.type == 'b')
@@ -337,8 +337,8 @@ inline std::string integer_to_string(T &&arg)
 
             do
             {
-                result = static_cast<char>(num % 8 + '0') + result;
-                num /= 8;
+                result = static_cast<char>((num & 7) + '0') + result;
+                num >>= 3;
             } while (num != 0);
         }
         return (arg < 0 ? "-0" : "0") + ((spec.type == 'X' ? 'x' : spec.type) + result);
