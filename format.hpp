@@ -290,7 +290,7 @@ inline std::string integer_to_string(T &&arg)
     else
     {
         std::string result;
-        auto num = (arg < 0) ? -arg : arg;
+        auto num = std::is_unsigned_v<std::decay_t<T>> ? arg : ((arg < 0) ? -arg : arg);
         if constexpr (spec.type == 'x')
         {
             do
@@ -350,6 +350,7 @@ template<Spec spec, typename T, typename ...Args>
 inline std::string float_to_string(T &&arg, const std::tuple<Args...> &args)
 {
     static_assert(std::is_floating_point_v<std::decay_t<T>>, "Invalid argument");
+    static_assert(!spec.has_set(Spec::Type), "Invalid argument");
 
     if constexpr (!spec.has_set(Spec::Precision))
     {
@@ -367,7 +368,17 @@ inline std::string float_to_string(T &&arg, const std::tuple<Args...> &args)
             precision = spec.precision;
         }
 
-        return std::to_string(arg);
+        // assume IEEE 754
+        static_assert(sizeof(T) == 4 || sizeof(T) == 8, "Only support 32-bit and 64-bit");
+
+        if constexpr (sizeof(T) == 4)
+        {
+
+        }
+        else // sizeof(T) == 8
+        {
+
+        }
     }
 }
 
@@ -399,7 +410,7 @@ inline std::string numeral_to_string(T &&arg, const std::tuple<Args...> &args)
     {
         static_assert(spec.has_set(Spec::Width), "Error! Please report!");
 
-        auto sign = (arg < 0) ? '-' : '+';
+        auto sign = std::is_unsigned_v<std::decay_t<T>> ? '+' : ((arg < 0) ? '-' : '+');
         bool has_sign = (spec.sign == '+' || arg < 0) ? true : false;
 
         if (has_sign && sign == '+')
@@ -669,14 +680,6 @@ inline std::string format(Args &&...args)
 {
     return details::format_impl<pattern, 0, 0>(std::make_tuple(std::forward<Args>(args)...));
 }
-
-/* TODO
-template<typename ...Args>
-inline std::string format(const std::string &pattern, Args &&...args)
-{
-
-}
-*/
 } // namespace fmt
 
 #endif
