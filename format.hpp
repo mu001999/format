@@ -389,11 +389,11 @@ inline std::string float_to_string(T &&arg, const std::tuple<Args...> &args)
         }
 
         std::string result(10, '\0');
-        int wrote = std::snprintf(result.data(), result.capacity() - 1, fmtstr.c_str(), arg);
+        int wrote = std::snprintf(result.data(), result.capacity(), fmtstr.c_str(), arg);
         while (wrote < 0)
         {
             result.resize(result.capacity() * 2);
-            wrote = std::snprintf(result.data(), result.capacity() - 1, fmtstr.c_str(), arg);
+            wrote = std::snprintf(result.data(), result.capacity(), fmtstr.c_str(), arg);
         }
         result.resize(wrote);
 
