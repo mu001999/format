@@ -48,6 +48,7 @@ TEST(StaticFormat, Sign_Type_Padding)
     ASSERT_EQ(fmt::format<"{:05}!">(5),     "00005!");
     ASSERT_EQ(fmt::format<"{:05}!">(-5),    "-0005!");
     ASSERT_EQ(fmt::format<"{:#010x}!">(27), "0x0000001b!");
+    ASSERT_EQ(fmt::format<"{:.5}!">(5.0),   "5.00000!");
 
     int x = -27;
     ASSERT_EQ(fmt::format<"{:#x}!">(static_cast<unsigned int>(x)), "0xffffffe5!");
