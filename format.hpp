@@ -282,6 +282,7 @@ template<Spec spec, typename T>
 inline std::string integer_to_string(T &&arg)
 {
     static_assert(std::is_integral_v<std::decay_t<T>>, "Invalid argument");
+    static_assert(!spec.has_set(Spec::Precision), "Invalid argument");
 
     if constexpr (!spec.has_set(Spec::Type))
     {
@@ -295,7 +296,7 @@ inline std::string integer_to_string(T &&arg)
         {
             do
             {
-                auto rem = num & 15;
+                auto rem = num & 0b1111;
                 if (rem < 10)
                 {
                     result = static_cast<char>(rem + '0') + result;
@@ -311,7 +312,7 @@ inline std::string integer_to_string(T &&arg)
         {
             do
             {
-                auto rem = num & 15;
+                auto rem = num & 0b1111;
                 if (rem < 10)
                 {
                     result = static_cast<char>(rem + '0') + result;
@@ -337,7 +338,7 @@ inline std::string integer_to_string(T &&arg)
 
             do
             {
-                result = static_cast<char>((num & 7) + '0') + result;
+                result = static_cast<char>((num & 0b111) + '0') + result;
                 num >>= 3;
             } while (num != 0);
         }
@@ -345,40 +346,58 @@ inline std::string integer_to_string(T &&arg)
     }
 }
 
-// TODO: for floats
+// for floats
 template<Spec spec, typename T, typename ...Args>
 inline std::string float_to_string(T &&arg, const std::tuple<Args...> &args)
 {
     static_assert(std::is_floating_point_v<std::decay_t<T>>, "Invalid argument");
-    static_assert(!spec.has_set(Spec::Type), "Invalid argument");
 
-    if constexpr (!spec.has_set(Spec::Precision))
+    if constexpr (!spec.has_set(Spec::Precision) && !spec.has_set(Spec::Type))
     {
         return std::to_string(arg);
     }
     else
     {
-        std::size_t precision;
-        if constexpr (spec.has_set(Spec::PreciArg))
+        std::string fmtstr = "%";
+
+        if constexpr (spec.has_set(Spec::Precision))
         {
-            precision = std::get<spec.precision>(args);
-        }
-        else if constexpr (spec.has_set(Spec::Precision))
-        {
-            precision = spec.precision;
+            std::size_t precision;
+            if constexpr (spec.has_set(Spec::PreciArg))
+            {
+                precision = std::get<spec.precision>(args);
+            }
+            else
+            {
+                precision = spec.precision;
+            }
+            fmtstr += '.' + std::to_string(precision);
         }
 
-        // assume IEEE 754
-        static_assert(sizeof(T) == 4 || sizeof(T) == 8, "Only support 32-bit and 64-bit");
-
-        if constexpr (sizeof(T) == 4)
+        if constexpr (!spec.has_set(Spec::Type))
         {
-
+            fmtstr += sizeof(T) == 4 ? "f" : "lf";
         }
-        else // sizeof(T) == 8
+        else if constexpr (spec.type == 'x')
         {
-
+            fmtstr += sizeof(T) == 4 ? "a" : "la";
         }
+        else
+        {
+            static_assert(spec.type == 'X', "Error! Please report!");
+            fmtstr += sizeof(T) == 4 ? "A" : "lA";
+        }
+
+        std::string result(10, '\0');
+        int wrote = std::snprintf(result.data(), result.capacity() - 1, fmtstr.c_str(), arg);
+        while (wrote < 0)
+        {
+            result.resize(result.capacity() * 2);
+            wrote = std::snprintf(result.data(), result.capacity() - 1, fmtstr.c_str(), arg);
+        }
+        result.resize(wrote);
+
+        return result;
     }
 }
 
@@ -601,11 +620,11 @@ constexpr Spec as_spec()
         constexpr auto pos = pattern.find_consequent_digit(begin + 1, end);
         if constexpr (pattern[pos] == '$')
         {
-            return Spec(as_spec<pattern, pos + 1, end, Spec::Precision>(), Spec::PreciArg, as_size_t<pattern>(begin + 1, end - 1));
+            return Spec(as_spec<pattern, pos + 1, end, Spec::Precision>(), Spec::PreciArg, as_size_t<pattern>(begin + 1, pos));
         }
         else
         {
-            return Spec(as_spec<pattern, pos, end, Spec::Precision>(), Spec::Precision, as_size_t<pattern>(begin + 1, end - 1));
+            return Spec(as_spec<pattern, pos, end, Spec::Precision>(), Spec::Precision, as_size_t<pattern>(begin + 1, pos));
         }
     }
     else if constexpr (is_type(pattern[begin]))
