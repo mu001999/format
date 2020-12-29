@@ -3,6 +3,7 @@
 
 #include <tuple>
 #include <string>
+#include <cstdio>
 #include <utility>
 #include <cstddef>
 #include <iterator>
@@ -692,12 +693,80 @@ inline std::string format_impl(const std::tuple<Args...> &args)
         return std::string(pattern.data + i, pos - i) + format_impl<pattern, pos, arg_ind>(args);
     }
 }
+
+template<FixedString pattern, std::size_t i, std::size_t arg_ind, typename ...Args>
+inline void print_impl(const std::tuple<Args...> &args)
+{
+    using Tuple = std::tuple<Args...>;
+
+    static_assert(i <= pattern.size, "Error! Please report!");
+
+    if constexpr (i == pattern.size)
+    {
+        return;
+    }
+    else if constexpr (pattern[i] == '{')
+    {
+        static_assert(i + 1 < pattern.size, "Use {{ or {...} but not only {");
+
+        // escaping {
+        if constexpr (pattern[i + 1] == '{')
+        {
+            std::putchar('{');
+            print_impl<pattern, i + 2, arg_ind>(args);
+        }
+        // simplest placeholder {}
+        else if constexpr (pattern[i + 1] == '}')
+        {
+            static_assert(arg_ind < std::tuple_size_v<Tuple>, "Too few arguments");
+            std::fputs(as_string(std::get<arg_ind>(args), args).c_str(), stdout);
+            print_impl<pattern, i + 2, arg_ind + 1>(args);
+        }
+        else
+        {
+            constexpr auto end_pos = pattern.find('}', i + 1);
+            static_assert(end_pos != pattern.size, "Use {{ or {...} but not only {");
+
+            constexpr auto colon_pos = pattern.find(':', i + 1, end_pos);
+            if constexpr (colon_pos < end_pos)
+            {
+                constexpr auto position = as_size_t<pattern>(i + 1, colon_pos);
+                static_assert(position < std::tuple_size_v<Tuple>, "Positional parameters not match");
+                std::fputs(as_string<as_spec<pattern, colon_pos + 1, end_pos>()>(std::get<position>(args), args), stdout);
+                print_impl<pattern, end_pos + 1, arg_ind>(args);
+            }
+            else
+            {
+                constexpr auto position = as_size_t<pattern>(i + 1, end_pos);
+                static_assert(position < std::tuple_size_v<Tuple>, "Positional parameters not match");
+                std::fputs(as_string(std::get<position>(args), args).c_str(), stdout);
+                print_impl<pattern, end_pos + 1, arg_ind>(args);
+            }
+        }
+    }
+    else
+    {
+        constexpr auto pos = pattern.find('{', i + 1);
+        for (std::size_t index = i; index < pos; ++index)
+        {
+            std::putchar(pattern[index]);
+        }
+        print_impl<pattern, pos, arg_ind>(args);
+    }
+}
 } // namespace details
 
 template<details::FixedString pattern, typename ...Args>
 inline std::string format(Args &&...args)
 {
     return details::format_impl<pattern, 0, 0>(std::make_tuple(std::forward<Args>(args)...));
+}
+
+template<details::FixedString pattern, typename ...Args>
+inline int print(Args &&...args)
+{
+    details::print_impl<pattern, 0, 0>(std::make_tuple(std::forward<Args>(args)...));
+    return std::ferror(stdout);
 }
 } // namespace fmt
 
