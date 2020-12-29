@@ -84,6 +84,20 @@ TEST(StaticFormat, Container)
     ASSERT_EQ(fmt::format<"Hello, {}!">(vec), "Hello, {{1, 2}, {2, 3}, {3, 4}}!");
 }
 
+template<fmt::details::FixedString pattern, typename ...Args>
+string print_v(Args &&...args)
+{
+    testing::internal::CaptureStdout();
+    fmt::print<pattern>(forward<Args>(args)...);
+    return testing::internal::GetCapturedStdout();
+}
+
+TEST(StaticPrint, All)
+{
+    ASSERT_EQ(print_v<"Hello, {}!">("world"), "Hello, world!");
+    ASSERT_EQ(print_v<"The number is {}">(42), "The number is 42");
+}
+
 int main(int argc, char *argv[])
 {
     testing::InitGoogleTest(&argc, argv);
