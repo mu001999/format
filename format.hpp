@@ -140,16 +140,6 @@ struct Spec
         // ...
     }
 
-    // for Sign
-    constexpr Spec(const Spec &spec, char sign)
-      : mode(spec.mode | Sign)
-      , fill(spec.fill), align(spec.align)
-      , sign(sign), type(spec.type)
-      , width(spec.width), precision(spec.precision)
-    {
-        // ...
-    }
-
     constexpr bool is_default() const
     {
         return mode == Default;
