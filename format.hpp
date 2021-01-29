@@ -131,12 +131,11 @@ struct Spec
         // ...
     }
 
-    // for Align
-    constexpr Spec(const Spec &spec, char fill, char align)
-      : mode(spec.mode | Align)
-      , fill(fill), align(align)
-      , sign(spec.sign), type(spec.type)
-      , width(spec.width), precision(spec.precision)
+    constexpr Spec(const Spec &other)
+      : mode(other.mode)
+      , fill(other.fill), align(other.align)
+      , sign(other.sign), type(other.type)
+      , width(other.width), precision(other.precision)
     {
         // ...
     }
@@ -149,43 +148,6 @@ struct Spec
       , width(spec.width), precision(spec.precision)
     {
         // ...
-    }
-
-    // for Type
-    constexpr Spec(char type) : mode(Type), type(type) {}
-
-    // for Padding
-    constexpr Spec(const Spec &spec, Mode m)
-      : mode(spec.mode | Padding)
-      , fill(spec.fill), align(spec.align)
-      , sign(spec.sign), type(spec.type)
-      , width(spec.width), precision(spec.precision)
-    {
-        if (m != Padding)
-        {
-            throw std::invalid_argument("Error! Please report!");
-        }
-    }
-
-    // for Width/Precision
-    constexpr Spec(const Spec &spec, Mode m, std::size_t value)
-      : mode(spec.mode | m)
-      , fill(spec.fill), align(spec.align)
-      , sign(spec.sign), type(spec.type)
-      , width(spec.width), precision(spec.precision)
-    {
-        if (m & Width)
-        {
-            width = value;
-        }
-        else if (m & Precision)
-        {
-            precision = value;
-        }
-        else
-        {
-            throw std::invalid_argument("Error! Please report!");
-        }
     }
 
     constexpr bool is_default() const
@@ -559,27 +521,44 @@ constexpr Spec as_spec()
     else if constexpr (begin + 1 < end && is_align(pattern[begin + 1]))
     {
         static_assert(anchor < Spec::Align, "Invalid format spec");
-        constexpr auto spec = Spec(as_spec<pattern, begin + 2, end, Spec::Align>(), pattern[begin], pattern[begin + 1]);
-        static_assert(spec.has_set(Spec::Width), "Invalid format spec");
-        static_assert(!spec.has_set(Spec::Padding), "Invalid format spec");
+
+        constexpr auto rspec = as_spec<pattern, begin + 2, end, Spec::Align>();
+        static_assert(rspec.has_set(Spec::Width), "Invalid format spec");
+        static_assert(!rspec.has_set(Spec::Padding), "Invalid format spec");
+
+        auto spec = rspec;
+        spec.mode |= Spec::Align;
+        spec.fill = pattern[begin];
+        spec.align = pattern[begin + 1];
         return spec;
     }
     else if constexpr (is_align(pattern[begin]))
     {
         static_assert(anchor < Spec::Align, "Invalid format spec");
-        constexpr auto spec = Spec(as_spec<pattern, begin + 1, end, Spec::Align>(), ' ', pattern[begin]);
-        static_assert(spec.has_set(Spec::Width), "Invalid format spec");
-        static_assert(!spec.has_set(Spec::Padding), "Invalid format spec");
+
+        constexpr auto rspec = as_spec<pattern, begin + 1, end, Spec::Align>();
+        static_assert(rspec.has_set(Spec::Width), "Invalid format spec");
+        static_assert(!rspec.has_set(Spec::Padding), "Invalid format spec");
+
+        auto spec = rspec;
+        spec.mode |= Spec::Align;
+        spec.fill = ' ';
+        spec.align = pattern[begin];
         return spec;
     }
     else if constexpr (is_sign(pattern[begin]))
     {
         static_assert(anchor < Spec::Sign, "Invalid format spec");
-        return Spec(as_spec<pattern, begin + 1, end, Spec::Sign>(), pattern[begin]);
+
+        auto spec = as_spec<pattern, begin + 1, end, Spec::Sign>();
+        spec.mode |= Spec::Sign;
+        spec.sign = pattern[begin];
+        return spec;
     }
     else if constexpr (pattern[begin] == '#')
     {
         static_assert(anchor < Spec::Type, "Invalid format spec");
+
         constexpr auto spec = as_spec<pattern, begin + 1, end, Spec::Type>();
         static_assert(spec.has_set(Spec::Type), "Invalid format spec");
         return spec;
@@ -589,13 +568,21 @@ constexpr Spec as_spec()
         if constexpr (pattern[begin + 1] == '$')
         {
             static_assert(anchor < Spec::Width, "Invalid format spec");
-            return Spec(as_spec<pattern, begin + 2, end, Spec::Width>(), Spec::WidthArg, 0);
+
+            auto spec = as_spec<pattern, begin + 2, end, Spec::Width>();
+            spec.mode |= Spec::WidthArg;
+            spec.width = 0;
+            return spec;
         }
         else
         {
             static_assert(anchor < Spec::Padding, "Invalid format spec");
-            constexpr auto spec = Spec(as_spec<pattern, begin + 1, end, Spec::Padding>(), Spec::Padding);
-            static_assert(spec.has_set(Spec::Width), "Invalid format spec");
+
+            constexpr auto rspec = as_spec<pattern, begin + 1, end, Spec::Padding>();
+            static_assert(rspec.has_set(Spec::Width), "Invalid format spec");
+
+            auto spec = rspec;
+            spec.mode |= Spec::Padding;
             return spec;
         }
     }
@@ -606,11 +593,17 @@ constexpr Spec as_spec()
         constexpr auto pos = pattern.find_consequent_digit(begin + 1, end);
         if constexpr (pattern[pos] == '$')
         {
-            return Spec(as_spec<pattern, pos + 1, end, Spec::Width>(), Spec::WidthArg, as_size_t<pattern>(begin, pos));
+            auto spec = as_spec<pattern, pos + 1, end, Spec::Width>();
+            spec.mode |= Spec::WidthArg;
+            spec.width = as_size_t<pattern>(begin, pos);
+            return spec;
         }
         else
         {
-            return Spec(as_spec<pattern, pos, end, Spec::Width>(), Spec::Width, as_size_t<pattern>(begin, pos));
+            auto spec = as_spec<pattern, pos, end, Spec::Width>();
+            spec.mode |= Spec::Width;
+            spec.width = as_size_t<pattern>(begin, pos);
+            return spec;
         }
     }
     else if constexpr (pattern[begin] == '.')
@@ -621,17 +614,27 @@ constexpr Spec as_spec()
         constexpr auto pos = pattern.find_consequent_digit(begin + 1, end);
         if constexpr (pattern[pos] == '$')
         {
-            return Spec(as_spec<pattern, pos + 1, end, Spec::Precision>(), Spec::PreciArg, as_size_t<pattern>(begin + 1, pos));
+            auto spec = as_spec<pattern, pos + 1, end, Spec::Precision>();
+            spec.mode |= Spec::PreciArg;
+            spec.precision = as_size_t<pattern>(begin + 1, pos);
+            return spec;
         }
         else
         {
-            return Spec(as_spec<pattern, pos, end, Spec::Precision>(), Spec::Precision, as_size_t<pattern>(begin + 1, pos));
+            auto spec = as_spec<pattern, pos, end, Spec::Precision>();
+            spec.mode |= Spec::Precision;
+            spec.precision = as_size_t<pattern>(begin + 1, pos);
+            return spec;
         }
     }
     else if constexpr (is_type(pattern[begin]))
     {
         static_assert(anchor <= Spec::Precision && begin + 1 == end, "Invalid format spec");
-        return Spec(pattern[begin]);
+
+        Spec spec;
+        spec.mode = Spec::Type;
+        spec.type = pattern[begin];
+        return spec;
     }
     else
     {
